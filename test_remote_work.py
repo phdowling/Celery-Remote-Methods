@@ -6,7 +6,7 @@ from remote_work import RemoteWorker, remote_task
 bad_adder, nbad_adder = None, None
 
 
-@RemoteWorker
+@RemoteWorker(remote_only=True)
 class BadAdder(object):
     def __init__(self, error=0):
         # this should only be visible in the worker, not the caller.
@@ -25,8 +25,11 @@ class BadAdder(object):
 @RemoteWorker
 class NegativeBadAdder(object):
     def __init__(self, error=0):
-        print "Instantiated!"
+        print "Instantiated (neg)!"
         self.error = error
+
+    def test_local(self):
+        print "this works! I'm %s." % self
 
     # example for when a task name is necessary. caller side, we still use obj.add_badly_delay!
     @remote_task(task_name="neg_add_badly")
@@ -41,8 +44,11 @@ def test():
     bad_adder = bad_adder or BadAdder(10)
     nbad_adder = nbad_adder or NegativeBadAdder(10)
 
+    nbad_adder.test_local()
+
     async_res = bad_adder.add_badly_delay(1, 2)
     async_res2 = nbad_adder.add_badly_delay(1, 2)
     async_res.get()
     async_res2.get()
+
     print async_res.result, async_res2.result

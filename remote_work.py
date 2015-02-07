@@ -57,12 +57,12 @@ class _RemoteWorkerMeta(type):
         if (__instance_id__, cls) in cls.instances:
             _instance, instantiation_args = cls.instances[(__instance_id__, cls)]
         else:
-            __skip__init = kwargs.get("__skip__init", True)
-            kwargs.pop("__skip__init", None)
-
             _instance = cls.__new__(cls, *args, **kwargs)
 
-            if not __skip__init:
+            __call__init = kwargs.get("__call_init", not _instance.__remote_only__)
+            kwargs.pop("__call_init", None)
+
+            if __call__init:
                 _instance.__init__(*args, **kwargs)
 
             for a_name in filter(lambda a: not a.startswith("__"), dir(_instance))[:]:
@@ -78,19 +78,34 @@ class _RemoteWorkerMeta(type):
         return _instance
 
 
-def RemoteWorker(cls):
-    __name = str(cls.__name__)
-    __bases = tuple(cls.__bases__)
-    __dict = dict(cls.__dict__)
-    for each_slot in __dict.get("__slots__", tuple()):
-        __dict.pop(each_slot, None)
+def RemoteWorker(*decorator_args, **decorator_kwargs):
+    no_args = False
+    if len(decorator_args) == 1 and not decorator_kwargs and callable(decorator_args[0]):
+        # We were called without args
+        cls_ = decorator_args[0]
+        no_args = True
 
-    __dict["__metaclass__"] = _RemoteWorkerMeta
-    __dict["__wrapped__"] = cls
+    remote_only = decorator_kwargs.get("remote_only", False)
 
-    newcls = _RemoteWorkerMeta(__name, __bases, __dict)
-    class_table[cls.__name__] = newcls
-    return newcls
+    def _RemoteWorker(cls):
+        __name = str(cls.__name__)
+        __bases = tuple(cls.__bases__)
+        __dict = dict(cls.__dict__)
+        for each_slot in __dict.get("__slots__", tuple()):
+            __dict.pop(each_slot, None)
+
+        __dict["__metaclass__"] = _RemoteWorkerMeta
+        __dict["__wrapped__"] = cls
+        __dict["__remote_only__"] = remote_only
+
+        newcls = _RemoteWorkerMeta(__name, __bases, __dict)
+        class_table[cls.__name__] = newcls
+        return newcls
+
+    if no_args:
+        return _RemoteWorker(cls_)
+    else:
+        return _RemoteWorker
 
 
 def remote_task(*decorator_args, **decorator_kwargs):
@@ -116,7 +131,7 @@ def remote_task(*decorator_args, **decorator_kwargs):
             del kwargs["__instantiation_args__"]
 
             method_class = class_table[__class_name__]
-            _instance = method_class(*r_args, __instance_id__=__instance_id__, __skip__init=False, **r_kwargs)
+            _instance = method_class(*r_args, __instance_id__=__instance_id__, __call_init=True,  **r_kwargs)
             actual_local_method = getattr(_instance, method_name)
             return actual_local_method(*args, **kwargs)
 
