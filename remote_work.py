@@ -11,17 +11,17 @@ very well thought-out decision, but hey, I already made this now.
 
 I don't really know if this works like I think it does, but from my (limited) testing it seems to do the job.
 
-Usage is simple: you write your class, and decorate the methods you want with @remote_task(classname). The class itself
-needs to be decorated using @RemoteWorker. You then call obj.method.delay() like normally. The need for the class
-name in the @remote_task decorator is annoying, but I haven't figued out how to do this without that two yet, since it
-seems you can't get the outer class reference or even class name inside of a decorator.
+Usage is simple: you write your class, and decorate the methods you want with @remote_task. The class itself
+needs to be decorated using @RemoteWorker. Then, to remotely call obj.method, you call obj.method_delay(), almost like
+for a normal task.
 
 How it works behind the scenes:
 When the module containing your classes get imported, the @remote_task decorator
     a)  creates a function for the worker, which when called either instantiates the class using the same arguments that
      the caller's object __init__ was supplied with (that information is basically the only repeated state transfer), or
      re-uses the previously created instance (which can be found because the metaclass creates and tracks instances)
-    b) creates a method that uses current_app.send_task(), which becomes the delay attribute of the original function.
+    b) creates a method that uses current_app.send_task(), which becomes the method_delay attribute of the original
+    function.
 
 Afterwards, the @RemoteWorker decorator registers the class as a worker and sets its metaclass, which is needed for
 creating instances later and keeping tracks of those instances, respectively. Once the object is instantiated, the
@@ -31,7 +31,7 @@ objects and, well, because that's the whole point of this module).
 
 So practically, the object isn't fully instatiated in the caller process (only via __new__, not __init__), but once the
 method is called, the worker side creates an instance using the __init__ arguments used on the calling object.
-After that, the corresponding instance is re-used on the worker side on each call to the delay method of the object.
+After that, the corresponding instance is re-used on the worker side on each call to method_delay of the object.
 
 If the RemoteWorker DOES rely on internal state changes at run time, make sure to only have one celery worker that
 executes it's task.
