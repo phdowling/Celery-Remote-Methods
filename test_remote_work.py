@@ -3,9 +3,13 @@ app = Celery('tasks', backend='amqp', broker='amqp://')
 
 from remote_work import RemoteWorker, remote_task
 
+bad_adder = None
+
+
 @RemoteWorker
 class BadAdder(object):
     def __init__(self, error=0):
+        # this should only be visible in the worker, not the caller.
         print "Instantiated!"
         self.error = error
 
@@ -13,7 +17,11 @@ class BadAdder(object):
     def add_badly(self, x, y):
         return x + y + self.error
 
-bad_adder = None
+    # task name can be supplied, this is only necessary when there would otherwise be a conflict with the method name.
+    @remote_task(task_name="unnecessary_other_name")
+    def sub_badly(self, x, y):
+        return x + y + self.error
+
 
 def test():
     global bad_adder
