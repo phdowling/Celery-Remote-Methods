@@ -93,24 +93,6 @@ def RemoteWorker(cls):
     return newcls
 
 
-class _remote_method_delay(object):
-    def __init__(self, task_name):
-        self.task_name = task_name
-        self._instance = None
-
-    def __call__(self, *args, **kwargs):
-        __instance_id__ = self._instance.__instance_id__
-        _, instantiation_args = self._instance.__class__.instances[(__instance_id__, self._instance.__class__)]
-        kwargs.update({
-            "__class_name__": self._instance.__class__.__name__,
-            "__instance_id__": __instance_id__,
-            "__instantiation_args__": instantiation_args
-        })
-        res = current_app.send_task(self.task_name, args, kwargs)
-        return res
-
-
-
 def remote_task(*decorator_args, **decorator_kwargs):
     no_args = False
     if len(decorator_args) == 1 and not decorator_kwargs and callable(decorator_args[0]):
@@ -149,7 +131,6 @@ def remote_task(*decorator_args, **decorator_kwargs):
             res = current_app.send_task(task_name, args, kwargs)
             return res
 
-        #method.__delay = method_delay
         method.__task_name__ = task_name
         method.__is_remote__ = True
 
